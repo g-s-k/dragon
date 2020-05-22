@@ -38,11 +38,6 @@ pub mod token {
             self.iter.next()
         }
 
-        fn split_lexeme(&mut self) -> &'src str {
-            let end = self.current_index();
-            &self.src[mem::replace(&mut self.start, end)..end]
-        }
-
         fn finish_token(
             &mut self,
             token: Result<S::Token, S::Error>,
@@ -54,7 +49,8 @@ pub mod token {
                 self.advance();
             }
 
-            (token, self.split_lexeme())
+            let end = self.current_index();
+            (token, &self.src[mem::replace(&mut self.start, end)..end])
         }
     }
 
@@ -89,7 +85,7 @@ pub mod token {
             self.done = true;
 
             if let Some(t) = self.state.try_finish() {
-                Some((Ok(t), self.split_lexeme()))
+                Some(self.finish_token(Ok(t), false))
             } else {
                 None
             }
