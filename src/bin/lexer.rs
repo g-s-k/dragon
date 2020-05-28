@@ -56,41 +56,43 @@ impl State for MyState {
         match (self, c) {
             (Self::Start, c) if c.is_whitespace() => Step::Discard,
             (Self::Comment, '\n') => Step::Discard,
-            (Self::Start, '/') => Step::ContinueWith(Self::Slash),
-            (Self::Slash, '/') => Step::ContinueWith(Self::Comment),
-            (Self::BlockComment, '*') => Step::ContinueWith(Self::BlockCommentEnd),
-            (Self::Comment, _) | (Self::BlockComment, _) => Step::Continue,
+            (Self::Start, '/') => Step::Continue(Some(Self::Slash)),
+            (Self::Slash, '/') => Step::Continue(Some(Self::Comment)),
+            (Self::BlockComment, '*') => Step::Continue(Some(Self::BlockCommentEnd)),
+            (Self::Comment, _) | (Self::BlockComment, _) => Step::Continue(None),
             (Self::BlockCommentEnd, '/') => Step::Discard,
             (Self::Slash, '*') | (Self::BlockCommentEnd, _) => {
-                Step::ContinueWith(Self::BlockComment)
+                Step::Continue(Some(Self::BlockComment))
             }
 
-            (Self::Start, '<') => Step::ContinueWith(Self::Lt),
-            (Self::Lt, '=') => Step::Done(MyToken::LessEqual, true),
-            (Self::Lt, '>') => Step::Done(MyToken::NotEqual, true),
-            (Self::Lt, _) => Step::Done(MyToken::Less, false),
-            (Self::Start, '=') => Step::Done(MyToken::Equal, true),
-            (Self::Start, '>') => Step::ContinueWith(Self::Gt),
-            (Self::Gt, '=') => Step::Done(MyToken::GreaterEqual, true),
-            (Self::Gt, _) => Step::Done(MyToken::Greater, false),
+            (Self::Start, '<') => Step::Continue(Some(Self::Lt)),
+            (Self::Lt, '=') => Step::Finish(MyToken::LessEqual, true),
+            (Self::Lt, '>') => Step::Finish(MyToken::NotEqual, true),
+            (Self::Lt, _) => Step::Finish(MyToken::Less, false),
+            (Self::Start, '=') => Step::Finish(MyToken::Equal, true),
+            (Self::Start, '>') => Step::Continue(Some(Self::Gt)),
+            (Self::Gt, '=') => Step::Finish(MyToken::GreaterEqual, true),
+            (Self::Gt, _) => Step::Finish(MyToken::Greater, false),
 
-            (Self::Start, 'a'..='z') | (Self::Start, 'A'..='Z') => Step::ContinueWith(Self::Id),
-            (Self::Id, 'a'..='z') | (Self::Id, 'A'..='Z') | (Self::Id, '0'..='9') => Step::Continue,
-            (Self::Id, _) => Step::Done(MyToken::Ident, false),
+            (Self::Start, 'a'..='z') | (Self::Start, 'A'..='Z') => Step::Continue(Some(Self::Id)),
+            (Self::Id, 'a'..='z') | (Self::Id, 'A'..='Z') | (Self::Id, '0'..='9') => {
+                Step::Continue(None)
+            }
+            (Self::Id, _) => Step::Finish(MyToken::Ident, false),
 
-            (Self::Start, '0'..='9') => Step::ContinueWith(Self::FloatLead),
-            (Self::FloatLead, '0'..='9') => Step::Continue,
-            (Self::FloatLead, '.') => Step::ContinueWith(Self::FloatTrailFirst),
-            (Self::FloatTrailFirst, '0'..='9') => Step::ContinueWith(Self::FloatTrail),
-            (Self::FloatTrail, '0'..='9') => Step::Continue,
-            (Self::FloatLead, 'E') | (Self::FloatTrail, 'E') => Step::ContinueWith(Self::FloatE),
-            (Self::FloatE, '+') | (Self::FloatE, '-') => Step::ContinueWith(Self::FloatExpFirst),
+            (Self::Start, '0'..='9') => Step::Continue(Some(Self::FloatLead)),
+            (Self::FloatLead, '0'..='9') => Step::Continue(None),
+            (Self::FloatLead, '.') => Step::Continue(Some(Self::FloatTrailFirst)),
+            (Self::FloatTrailFirst, '0'..='9') => Step::Continue(Some(Self::FloatTrail)),
+            (Self::FloatTrail, '0'..='9') => Step::Continue(None),
+            (Self::FloatLead, 'E') | (Self::FloatTrail, 'E') => Step::Continue(Some(Self::FloatE)),
+            (Self::FloatE, '+') | (Self::FloatE, '-') => Step::Continue(Some(Self::FloatExpFirst)),
             (Self::FloatE, '0'..='9') | (Self::FloatExpFirst, '0'..='9') => {
-                Step::ContinueWith(Self::FloatExp)
+                Step::Continue(Some(Self::FloatExp))
             }
-            (Self::FloatExp, '0'..='9') => Step::Continue,
+            (Self::FloatExp, '0'..='9') => Step::Continue(None),
             (Self::FloatLead, _) | (Self::FloatTrail, _) | (Self::FloatExp, _) => {
-                Step::Done(MyToken::Num, false)
+                Step::Finish(MyToken::Num, false)
             }
             (_, _) => Step::Abort(c),
         }
