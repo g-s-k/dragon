@@ -25,17 +25,14 @@ pub mod token {
     //!     Exponent,
     //! }
     //!
-    //! impl Default for MyState {
-    //!     fn default() -> Self { Self::Start }
-    //! }
+    //! impl Default for MyState { fn default() -> Self { Self::Start } }
     //!
     //! impl State for MyState {
     //!     type Token = ();
-    //!     type Error = char;
+    //!     type Error = ();
     //!
     //!     fn handle_char(&self, c: char) -> Step<Self> {
     //!         match (self, c) {
-    //!             (Self::Start, c) if c.is_whitespace() => Step::Discard,
     //!             (Self::Start, '0'..='9') => Step::Continue(Some(Self::Leading)),
     //!             (Self::Leading, '.') => Step::Continue(Some(Self::TrailingFirst)),
     //!             (Self::TrailingFirst, '0'..='9') => Step::Continue(Some(Self::Trailing)),
@@ -46,10 +43,13 @@ pub mod token {
     //!             (Self::Leading, '0'..='9')
     //!             | (Self::Trailing, '0'..='9')
     //!             | (Self::Exponent, '0'..='9') => Step::Continue(None),
+    //!
     //!             (Self::Leading, _)
     //!             | (Self::Trailing, _)
     //!             | (Self::Exponent, _) => Step::Finish((), false),
-    //!             (_, _) => Step::Abort(c),
+    //!
+    //!             (Self::Start, c) if c.is_whitespace() => Step::Discard,
+    //!             (_, _) => Step::Abort(()),
     //!         }
     //!     }
     //!
@@ -61,15 +61,11 @@ pub mod token {
     //!     }
     //! }
     //!
-    //! let mut iter = lex::<MyState>("1 2 3.0 4.44444E44 5E6 7.50 01234.5");
-    //!
-    //! assert_eq!(iter.next().unwrap().1, "1");
-    //! assert_eq!(iter.next().unwrap().1, "2");
-    //! assert_eq!(iter.next().unwrap().1, "3.0");
-    //! assert_eq!(iter.next().unwrap().1, "4.44444E44");
-    //! assert_eq!(iter.next().unwrap().1, "5E6");
-    //! assert_eq!(iter.next().unwrap().1, "7.50");
-    //! assert_eq!(iter.next().unwrap().1, "01234.5");
+    //! assert!(
+    //!     lex::<MyState>("1 2 3.0 4.44444E44 5E6 7.50 01234.5")
+    //!         .map(|(_, s)| s)
+    //!         .eq(vec!["1", "2", "3.0", "4.44444E44", "5E6", "7.50", "01234.5"])
+    //! );
     //! ```
 
     use std::{iter::Peekable, mem, str::CharIndices};
