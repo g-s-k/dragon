@@ -100,19 +100,21 @@ impl<'a> Parser<'a> {
     }
 
     fn term(&mut self, mut last_node: usize) -> usize {
+        let mut prev_node = last_node;
         let first_node = self.next_node();
         println!("\t{} [label = \"\", shape = circle]", first_node);
         println!("\t{} -> {} [label = ϵ]", last_node, first_node);
         last_node = first_node;
 
-        while let Some(end) = self.atom(last_node) {
+        while let Some(end) = self.atom(prev_node, last_node) {
+            prev_node = last_node;
             last_node = end;
         }
 
         last_node
     }
 
-    fn atom(&mut self, last_node: usize) -> Option<usize> {
+    fn atom(&mut self, prev_node: usize, last_node: usize) -> Option<usize> {
         let t_type;
         let text;
 
@@ -132,7 +134,7 @@ impl<'a> Parser<'a> {
                 self.regex(last_node, node_out);
                 self.consume(MyToken::CloseParen);
 
-                node_out = self.postfix_star(last_node, node_out);
+                node_out = self.postfix_star(prev_node, last_node, node_out);
                 Some(node_out)
             }
             MyToken::NonSpecial => {
@@ -144,18 +146,19 @@ impl<'a> Parser<'a> {
                 println!("\t{} [label = \"\", shape = circle];", end);
                 println!("\t{} -> {} [label = {}]", last_node, end, current);
 
-                end = self.postfix_star(last_node, end);
+                end = self.postfix_star(prev_node, last_node, end);
                 Some(end)
             }
             _ => None,
         }
     }
 
-    fn postfix_star(&mut self, start: usize, end: usize) -> usize {
+    fn postfix_star(&mut self, prev: usize, start: usize, end: usize) -> usize {
         if self.r#match(MyToken::Star) {
             let new_end = self.next_node();
-            println!("\t{} -> {{{}, {}}}[label = ϵ]", end, start, new_end);
             println!("\t{} [label = \"\", shape = circle];", new_end);
+            println!("\t{} -> {{{}, {}}} [label = ϵ]", end, start, new_end);
+            println!("\t{} -> {} [label = ϵ]", prev, new_end);
             new_end
         } else {
             end
