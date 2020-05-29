@@ -1,6 +1,9 @@
 use {
-    dragon::token::{self, Lexer, State, Step, TokenResult},
-    std::io::{self, Read},
+    dragon::token::{self, Lexer, State, Step},
+    std::{
+        io::{self, Read},
+        iter::Peekable,
+    },
 };
 
 fn main() {
@@ -42,11 +45,7 @@ impl State for MyState {
 }
 
 struct Parser<'a> {
-    iter: Lexer<'a, MyState>,
-
-    previous: Option<TokenResult<'a, MyToken, ()>>,
-    current: Option<TokenResult<'a, MyToken, ()>>,
-
+    iter: Peekable<Lexer<'a, MyState>>,
     node: usize,
 }
 
@@ -59,12 +58,8 @@ struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     fn new(src: &'a str) -> Self {
-        let mut iter = token::lex(src);
-        let current = iter.next();
         Self {
-            iter,
-            previous: None,
-            current,
+            iter: token::lex(src).peekable(),
             node: 0,
         }
     }
@@ -86,7 +81,7 @@ impl<'a> Parser<'a> {
 
     fn regex(&mut self, start_node: usize, accept_node: usize) {
         loop {
-            if self.current.is_none() {
+            if self.iter.peek().is_none() {
                 break;
             }
 
@@ -114,7 +109,7 @@ impl<'a> Parser<'a> {
     }
 
     fn atom(&mut self, prev_node: usize, last_node: usize) -> Option<usize> {
-        let text = if let Some(entry) = &self.current {
+        let text = if let Some(entry) = self.iter.peek() {
             entry.1
         } else {
             return None;
@@ -125,7 +120,7 @@ impl<'a> Parser<'a> {
             end_node = self.next_node(true);
             self.regex(last_node, end_node);
             if !self.r#match(MyToken::CloseParen) {
-                panic!("Expected closing parenthesis, got {:?}", self.current);
+                panic!("Expected closing parenthesis, got {:?}", self.iter.peek());
             }
         } else if self.r#match(MyToken::NonSpecial) {
             end_node = self.next_node(true);
@@ -159,15 +154,10 @@ impl<'a> Parser<'a> {
         old
     }
 
-    fn advance(&mut self) {
-        self.previous = self.current.take();
-        self.current = self.iter.next();
-    }
-
     fn r#match(&mut self, wanted: MyToken) -> bool {
-        if let Some((Ok(c), _)) = &self.current {
+        if let Some((Ok(c), _)) = self.iter.peek() {
             if *c == wanted {
-                self.advance();
+                self.iter.next();
                 return true;
             }
         }
