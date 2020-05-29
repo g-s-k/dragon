@@ -1,14 +1,12 @@
-use std::io::{self, Read};
+use {
+    dragon::token::{self, Lexer, State, Step, TokenResult},
+    std::io::{self, Read},
+};
 
-use dragon::token::{self, Lexer, State, Step, TokenResult};
-
-fn main() -> io::Result<()> {
+fn main() {
     let mut buf = String::new();
-    io::stdin().read_to_string(&mut buf)?;
-
+    io::stdin().read_to_string(&mut buf).unwrap();
     Parser::new(&buf).parse();
-
-    Ok(())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -56,7 +54,7 @@ struct Parser<'a> {
  *  regex     := term ( "|" term )*
  *  term      := atom+
  *  atom      := char "*"?
- *  char      := [A-Za-z] | "(" regex ")"
+ *  char      := [A-Za-z0-9] | "(" regex ")"
  */
 
 impl<'a> Parser<'a> {
@@ -129,33 +127,38 @@ impl<'a> Parser<'a> {
             MyToken::OpenParen => {
                 self.advance();
 
-                let node_out = self.next_node();
+                let mut node_out = self.next_node();
                 println!("\t{} [label = \"\", shape = circle];", node_out);
                 self.regex(last_node, node_out);
                 self.consume(MyToken::CloseParen);
 
-                self.postfix_star(last_node, node_out);
+                node_out = self.postfix_star(last_node, node_out);
                 Some(node_out)
             }
             MyToken::NonSpecial => {
                 self.advance();
 
-                let end = self.next_node();
+                let mut end = self.next_node();
                 let current = text.chars().next().unwrap();
 
                 println!("\t{} [label = \"\", shape = circle];", end);
                 println!("\t{} -> {} [label = {}]", last_node, end, current);
 
-                self.postfix_star(last_node, end);
+                end = self.postfix_star(last_node, end);
                 Some(end)
             }
             _ => None,
         }
     }
 
-    fn postfix_star(&mut self, start: usize, end: usize) {
+    fn postfix_star(&mut self, start: usize, end: usize) -> usize {
         if self.r#match(MyToken::Star) {
-            println!("\t{} -> {} [label = ϵ]", end, start);
+            let new_end = self.next_node();
+            println!("\t{} -> {{{}, {}}}[label = ϵ]", end, start, new_end);
+            println!("\t{} [label = \"\", shape = circle];", new_end);
+            new_end
+        } else {
+            end
         }
     }
 
