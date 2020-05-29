@@ -80,13 +80,8 @@ impl<'a> Parser<'a> {
     }
 
     fn regex(&mut self, start_node: usize, accept_node: usize) {
-        loop {
-            if self.iter.peek().is_none() {
-                break;
-            }
-
-            let end = self.term(start_node);
-            println!("\t{} -> {} [label = ϵ]", end, accept_node);
+        while self.iter.peek().is_some() {
+            emit_edge(self.term(start_node), accept_node, None);
 
             if !self.r#match(MyToken::Pipe) {
                 break;
@@ -97,7 +92,7 @@ impl<'a> Parser<'a> {
     fn term(&mut self, mut last_node: usize) -> usize {
         let mut prev_node = last_node;
         let first_node = self.next_node(true);
-        println!("\t{} -> {} [label = ϵ]", last_node, first_node);
+        emit_edge(last_node, first_node, None);
         last_node = first_node;
 
         while let Some(end) = self.atom(prev_node, last_node) {
@@ -125,18 +120,16 @@ impl<'a> Parser<'a> {
         } else if self.r#match(MyToken::NonSpecial) {
             end_node = self.next_node(true);
             let current = text.chars().next().unwrap();
-            println!("\t{} -> {} [label = {}]", last_node, end_node, current);
+            emit_edge(last_node, end_node, Some(current));
         } else {
             return None;
         }
 
         if self.r#match(MyToken::Star) {
             let new_end = self.next_node(true);
-            println!(
-                "\t{} -> {{{}, {}}} [label = ϵ]",
-                end_node, last_node, new_end
-            );
-            println!("\t{} -> {} [label = ϵ]", prev_node, new_end);
+            emit_edge(end_node, last_node, None);
+            emit_edge(end_node, new_end, None);
+            emit_edge(prev_node, new_end, None);
             Some(new_end)
         } else {
             Some(end_node)
@@ -164,4 +157,8 @@ impl<'a> Parser<'a> {
 
         false
     }
+}
+
+fn emit_edge(start: usize, end: usize, label: Option<char>) {
+    println!("\t{} -> {} [label = {}];", start, end, label.unwrap_or('ϵ'));
 }
