@@ -73,8 +73,8 @@ impl<'a> Parser<'a> {
         println!("strict digraph {{");
         println!("\trankdir = LR;");
 
-        let start = self.next_node();
-        let accept = self.next_node();
+        let start = self.next_node(false);
+        let accept = self.next_node(false);
 
         println!("\t{} [label = i, shape = circle];", start);
         println!("\t{} [label = f, shape = doublecircle];", accept);
@@ -101,8 +101,7 @@ impl<'a> Parser<'a> {
 
     fn term(&mut self, mut last_node: usize) -> usize {
         let mut prev_node = last_node;
-        let first_node = self.next_node();
-        println!("\t{} [label = \"\", shape = circle]", first_node);
+        let first_node = self.next_node(true);
         println!("\t{} -> {} [label = ϵ]", last_node, first_node);
         last_node = first_node;
 
@@ -115,59 +114,46 @@ impl<'a> Parser<'a> {
     }
 
     fn atom(&mut self, prev_node: usize, last_node: usize) -> Option<usize> {
-        let t_type;
-        let text;
+        let text = if let Some(entry) = &self.current {
+            entry.1
+        } else {
+            return None;
+        };
 
-        if let Some(entry) = &self.current {
-            t_type = entry.0.unwrap();
-            text = entry.1;
+        let end_node;
+        if self.r#match(MyToken::OpenParen) {
+            end_node = self.next_node(true);
+            self.regex(last_node, end_node);
+            self.consume(MyToken::CloseParen);
+        } else if self.r#match(MyToken::NonSpecial) {
+            end_node = self.next_node(true);
+            let current = text.chars().next().unwrap();
+            println!("\t{} -> {} [label = {}]", last_node, end_node, current);
         } else {
             return None;
         }
 
-        match t_type {
-            MyToken::OpenParen => {
-                self.advance();
-
-                let mut node_out = self.next_node();
-                println!("\t{} [label = \"\", shape = circle];", node_out);
-                self.regex(last_node, node_out);
-                self.consume(MyToken::CloseParen);
-
-                node_out = self.postfix_star(prev_node, last_node, node_out);
-                Some(node_out)
-            }
-            MyToken::NonSpecial => {
-                self.advance();
-
-                let mut end = self.next_node();
-                let current = text.chars().next().unwrap();
-
-                println!("\t{} [label = \"\", shape = circle];", end);
-                println!("\t{} -> {} [label = {}]", last_node, end, current);
-
-                end = self.postfix_star(prev_node, last_node, end);
-                Some(end)
-            }
-            _ => None,
-        }
-    }
-
-    fn postfix_star(&mut self, prev: usize, start: usize, end: usize) -> usize {
         if self.r#match(MyToken::Star) {
-            let new_end = self.next_node();
-            println!("\t{} [label = \"\", shape = circle];", new_end);
-            println!("\t{} -> {{{}, {}}} [label = ϵ]", end, start, new_end);
-            println!("\t{} -> {} [label = ϵ]", prev, new_end);
-            new_end
+            let new_end = self.next_node(true);
+            println!(
+                "\t{} -> {{{}, {}}} [label = ϵ]",
+                end_node, last_node, new_end
+            );
+            println!("\t{} -> {} [label = ϵ]", prev_node, new_end);
+            Some(new_end)
         } else {
-            end
+            Some(end_node)
         }
     }
 
-    fn next_node(&mut self) -> usize {
+    fn next_node(&mut self, should_draw: bool) -> usize {
         let old = self.node;
         self.node += 1;
+
+        if should_draw {
+            println!("\t{} [label = \"\", shape = circle];", old);
+        }
+
         old
     }
 
