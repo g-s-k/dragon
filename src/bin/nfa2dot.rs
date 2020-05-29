@@ -124,7 +124,9 @@ impl<'a> Parser<'a> {
         if self.r#match(MyToken::OpenParen) {
             end_node = self.next_node(true);
             self.regex(last_node, end_node);
-            self.consume(MyToken::CloseParen);
+            if !self.r#match(MyToken::CloseParen) {
+                panic!("Expected closing parenthesis, got {:?}", self.current);
+            }
         } else if self.r#match(MyToken::NonSpecial) {
             end_node = self.next_node(true);
             let current = text.chars().next().unwrap();
@@ -171,17 +173,5 @@ impl<'a> Parser<'a> {
         }
 
         false
-    }
-
-    fn consume(&mut self, wanted: MyToken) {
-        if let Some((Ok(c), _)) = &self.current {
-            if *c == wanted {
-                self.advance();
-                return;
-            }
-            panic!("Expected token {:?}, got {:?}", wanted, c);
-        }
-
-        panic!("Expected token {:?}, got EOF", wanted);
     }
 }
